@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PyCloud IDE</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0d0f14;--surface:#13161e;--border:#1f2433;
+  --accent:#00e5ff;--accent2:#7c3aed;--green:#00ff9d;
+  --red:#ff4f6a;--text:#e2e8f0;--muted:#4a5568;--panel:#0f1219;
+  --sidebar-bg:#1a1d26;--console-bg:var(--panel);
+  --glow:rgba(0,229,255,0.3);--status-bar:#7c3aed;
+}
+body.theme-light{--bg:#f8fafc;--surface:#ffffff;--border:#e2e8f0;--accent:#0ea5e9;--accent2:#8b5cf6;--green:#10b981;--red:#ef4444;--text:#1e293b;--muted:#64748b;--panel:#f1f5f9;--sidebar-bg:#e2e8f0;--console-bg:#f8fafc;--glow:rgba(14,165,233,0.25);--status-bar:#8b5cf6;}
+body.theme-red{--bg:#0f0608;--surface:#1a0c0e;--border:#3d1520;--accent:#ff4f6a;--accent2:#c0392b;--green:#ff8c69;--red:#ff1744;--text:#fde8ea;--muted:#7f3a42;--panel:#12060a;--sidebar-bg:#1f0d10;--console-bg:#12060a;--glow:rgba(255,79,106,0.3);--status-bar:#c0392b;}
+body.theme-green{--bg:#060f08;--surface:#0c1a0e;--border:#153d1e;--accent:#00ff9d;--accent2:#16a34a;--green:#39ff14;--red:#ff4f6a;--text:#e8fdee;--muted:#3a7f4a;--panel:#060c07;--sidebar-bg:#0d1f10;--console-bg:#060c07;--glow:rgba(0,255,157,0.3);--status-bar:#16a34a;}
+body.theme-blue{--bg:#060a0f;--surface:#0c131a;--border:#152033;--accent:#00b4ff;--accent2:#1d4ed8;--green:#00e5ff;--red:#ff4f6a;--text:#e8f4fd;--muted:#3a5a7f;--panel:#060c12;--sidebar-bg:#0d1520;--console-bg:#060c12;--glow:rgba(0,180,255,0.3);--status-bar:#1d4ed8;}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;transition:background .3s,color .3s;}
+
+/* ── GATE ── */
+#ideGateOverlay{position:fixed;inset:0;z-index:9999;display:none;pointer-events:all;}
+#ideGateOverlay.gate-visible{display:flex;}
+#ideGateOverlay.gate-done{pointer-events:none;}
+.gate{width:50%;height:100%;background:#0d0f14;background-size:cover;background-repeat:no-repeat;position:relative;overflow:hidden;}
+.gate-left{background-position:right center;}
+.gate-right{background-position:left center;}
+.gate-decor{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,229,255,.018) 3px,rgba(0,229,255,.018) 4px),linear-gradient(to right,rgba(124,58,237,.25) 0%,transparent 80%);}
+.gate-right .gate-decor{background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,229,255,.018) 3px,rgba(0,229,255,.018) 4px),linear-gradient(to left,rgba(124,58,237,.25) 0%,transparent 80%);}
+#ideGateCrack{position:absolute;top:0;left:calc(50% - 1px);width:2px;height:100%;z-index:2;background:linear-gradient(to bottom,transparent,var(--accent) 25%,rgba(255,255,255,.95) 50%,var(--accent) 75%,transparent);box-shadow:0 0 20px 8px rgba(0,229,255,.7),0 0 60px 25px rgba(0,229,255,.35);animation:crackGlow .9s ease-in-out infinite alternate;}
+@keyframes crackGlow{from{box-shadow:0 0 15px 6px rgba(0,229,255,.55),0 0 45px 18px rgba(0,229,255,.28);}to{box-shadow:0 0 30px 14px rgba(0,229,255,1),0 0 80px 36px rgba(0,229,255,.6);}}
+#ideGateFog{position:absolute;inset:0;pointer-events:none;z-index:3;background:radial-gradient(ellipse at 50% 50%,rgba(150,210,255,.22) 0%,rgba(0,229,255,.07) 40%,transparent 70%);}
+#ideGateOverlay.opening .gate-left{animation:gateStruggleLeft 3s cubic-bezier(.23,1,.32,1) forwards;}
+#ideGateOverlay.opening .gate-right{animation:gateStruggleRight 3s cubic-bezier(.23,1,.32,1) forwards;}
+#ideGateOverlay.opening #ideGateFog{animation:fogDissipate 3.2s ease-out forwards;}
+#ideGateOverlay.opening #ideGateCrack{animation:crackFade 3.2s ease-out forwards;}
+@keyframes gateStruggleLeft{0%{transform:translateX(0);}5%{transform:translateX(-5%);}10%{transform:translateX(-1%);}18%{transform:translateX(-9%);}26%{transform:translateX(-4%);}36%{transform:translateX(-16%);}45%{transform:translateX(-9%);}57%{transform:translateX(-32%);}68%{transform:translateX(-22%);}82%{transform:translateX(-65%);}100%{transform:translateX(-104%);}}
+@keyframes gateStruggleRight{0%{transform:translateX(0);}5%{transform:translateX(5%);}10%{transform:translateX(1%);}18%{transform:translateX(9%);}26%{transform:translateX(4%);}36%{transform:translateX(16%);}45%{transform:translateX(9%);}57%{transform:translateX(32%);}68%{transform:translateX(22%);}82%{transform:translateX(65%);}100%{transform:translateX(104%);}}
+@keyframes fogDissipate{0%{opacity:1;}60%{opacity:.45;}100%{opacity:0;}}
+@keyframes crackFade{0%{opacity:1;}55%{opacity:1;}85%{opacity:.3;}100%{opacity:0;}}
+
+/* ── SOLO LEVELING RANK UP ── */
+#rankUpOverlay{position:fixed;inset:0;z-index:99999;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,10,30,.97);pointer-events:all;}
+#rankUpOverlay.show{display:flex;animation:rankFlash .4s ease-out;}
+@keyframes rankFlash{0%{background:rgba(0,180,255,.9);}40%{background:rgba(0,20,60,.98);}100%{background:rgba(0,10,30,.97);}}
+.rank-up-border{position:absolute;inset:0;border:2px solid transparent;background:linear-gradient(var(--bg),var(--bg)) padding-box,linear-gradient(135deg,#00e5ff,#7c3aed,#00e5ff) border-box;animation:borderPulse 1.5s ease-in-out infinite;}
+@keyframes borderPulse{0%,100%{opacity:.6;}50%{opacity:1;}}
+.rank-up-inner{position:relative;z-index:2;text-align:center;padding:40px;}
+.rank-up-title{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:8px;color:#00e5ff;text-transform:uppercase;margin-bottom:20px;animation:fadeSlideDown .6s ease-out .2s both;}
+.rank-up-crown{font-size:64px;margin-bottom:16px;animation:crownBounce .8s ease-out .4s both;filter:drop-shadow(0 0 20px #00e5ff);}
+@keyframes crownBounce{0%{transform:scale(0) rotate(-20deg);opacity:0;}70%{transform:scale(1.2) rotate(5deg);}100%{transform:scale(1) rotate(0);opacity:1;}}
+.rank-up-congrats{font-size:13px;letter-spacing:5px;color:#fff;font-family:'Space Mono',monospace;text-transform:uppercase;margin-bottom:8px;animation:fadeSlideDown .6s ease-out .5s both;}
+.rank-up-name{font-size:32px;font-weight:800;color:#00e5ff;text-shadow:0 0 30px rgba(0,229,255,.8);margin-bottom:8px;animation:fadeSlideDown .6s ease-out .65s both;}
+.rank-up-sub{font-size:11px;font-family:'Space Mono',monospace;color:#4a9eae;letter-spacing:2px;animation:fadeSlideDown .6s ease-out .8s both;}
+@keyframes fadeSlideDown{0%{opacity:0;transform:translateY(-20px);}100%{opacity:1;transform:translateY(0);}}
+.rank-up-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.rank-particle{position:absolute;width:4px;height:4px;border-radius:50%;background:#00e5ff;animation:particleFly 2s ease-out forwards;}
+@keyframes particleFly{0%{opacity:1;transform:translate(0,0) scale(1);}100%{opacity:0;transform:translate(var(--px),var(--py)) scale(0);}}
+.rank-up-close{margin-top:32px;background:transparent;border:1px solid #00e5ff;color:#00e5ff;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;padding:10px 32px;cursor:pointer;border-radius:4px;text-transform:uppercase;animation:fadeSlideDown .6s ease-out 1s both;transition:all .2s;}
+.rank-up-close:hover{background:#00e5ff;color:#000;}
+
+/* ── HEADER ── */
+header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 12px;height:60px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;transition:background .3s,border-color .3s;}
+.header-left{display:flex;gap:5px;align-items:center;flex-wrap:nowrap;}
+.header-right{display:flex;gap:5px;align-items:center;justify-content:flex-end;}
+.header-logo{width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:10px;transition:background .2s;border:1px solid transparent;position:relative;overflow:hidden;}
+.header-logo:hover{background:rgba(255,255,255,.06);border-color:var(--border);}
+.header-logo img{max-width:100%;max-height:100%;object-fit:contain;display:none;}
+.header-logo img.loaded{display:block;}
+.header-logo .logo-anim-canvas{width:100%;height:100%;position:absolute;top:0;left:0;}
+
+/* Logo animation classes */
+.logo-anim-pulse{animation:logoPulse 1.5s ease-in-out infinite;}
+.logo-anim-spin{animation:logoSpin 3s linear infinite;}
+.logo-anim-bounce{animation:logoBounce 1s ease-in-out infinite;}
+.logo-anim-glitch{animation:logoGlitch .3s steps(2) infinite;}
+.logo-anim-wave{animation:logoWave 2s ease-in-out infinite;}
+@keyframes logoPulse{0%,100%{transform:scale(1);filter:brightness(1);}50%{transform:scale(1.12);filter:brightness(1.4) drop-shadow(0 0 8px var(--accent));}}
+@keyframes logoSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+@keyframes logoBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+@keyframes logoGlitch{0%{transform:translate(0);filter:hue-rotate(0deg);}25%{transform:translate(-2px,1px);filter:hue-rotate(90deg);}75%{transform:translate(2px,-1px);filter:hue-rotate(180deg);}100%{transform:translate(0);filter:hue-rotate(0deg);}}
+@keyframes logoWave{0%,100%{transform:rotate(-5deg) scale(.95);}50%{transform:rotate(5deg) scale(1.05);}}
+
+button{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:6px 11px;border:none;border-radius:6px;cursor:pointer;transition:all .15s;letter-spacing:.4px;white-space:nowrap;display:flex;align-items:center;gap:5px;}
+button.clicked{border:2px solid var(--red)!important;}
+button img.btn-icon{height:14px;width:auto;object-fit:contain;}
+#runBtn{background:var(--green);color:#000;font-size:12px;padding:8px 18px;box-shadow:0 0 14px rgba(0,255,157,.2);}
+#runBtn:hover{filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 0 22px rgba(0,255,157,.45);}
+#runBtn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+#saveBtn{background:var(--accent);color:#000;}
+#loadBtn{background:var(--accent2);color:#fff;}
+#globalBtn,#assetsBtn,#logoPickerBtn{background:var(--border);color:var(--text);}
+#mySettingsBtn,#profileBtn{background:var(--border);color:var(--text);}
+#logoutBtn{background:transparent;color:var(--muted);border:1px solid var(--border);}
+#logoutBtn:hover{color:var(--red);border-color:var(--red);}
+#themeToggle{background:var(--border);color:var(--text);font-size:13px;padding:6px 10px;}
+#projectName{background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:11px;padding:5px 10px;border-radius:6px;width:130px;outline:none;}
+
+/* ── MAIN ── */
+main{flex:1;display:flex;overflow:hidden;position:relative;}
+#consoleBg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.2;pointer-events:none;z-index:0;}
+.editor-panel{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border);z-index:10;}
+.output-panel{flex:1;display:flex;flex-direction:column;background:var(--console-bg);z-index:10;position:relative;}
+.panel-label{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);text-transform:uppercase;}
+#editor{flex:1;overflow:hidden;}
+.output-header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);}
+#clearBtn{background:transparent;color:var(--muted);font-size:10px;padding:3px 8px;border:1px solid var(--border);}
+#output-container{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#output{flex:1;font-family:'Space Mono',monospace;font-size:12.5px;line-height:1.7;padding:16px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:var(--green);}
+#console-input-line{display:flex;align-items:center;padding:8px 16px;background:rgba(0,0,0,.18);border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:12.5px;color:var(--accent);}
+#console-prompt{margin-right:8px;font-weight:bold;}
+#console-input{flex:1;background:transparent;border:none;outline:none;color:inherit;font-family:inherit;font-size:inherit;}
+
+/* ── BOSS SIDEBAR ── */
+.boss-sidebar{width:290px;background:var(--sidebar-bg);display:flex;flex-direction:column;border-left:1px solid var(--border);transition:background .3s;z-index:10;}
+.boss-header{padding:12px 14px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.boss-avatar{width:32px;height:32px;background:var(--accent2);border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+.boss-avatar img{width:100%;height:100%;object-fit:cover;}
+.boss-name{font-weight:800;font-size:14px;color:var(--accent);}
+.boss-chat{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;font-family:'Space Mono',monospace;font-size:11.5px;}
+.msg{max-width:88%;padding:9px 13px;border-radius:12px;line-height:1.45;transition:opacity .5s ease;}
+.msg.boss{background:var(--surface);color:var(--text);align-self:flex-start;border-bottom-left-radius:2px;border:1px solid var(--border);}
+.msg.fade-out{opacity:0;}
+.typing-indicator{font-size:10px;color:var(--muted);padding:0 14px 8px;font-style:italic;}
+
+/* ── STATUS BAR ── */
+#statusBar{height:24px;background:var(--status-bar);display:flex;align-items:center;padding:0 16px;font-family:'Space Mono',monospace;font-size:10px;color:#fff;flex-shrink:0;gap:16px;z-index:100;}
+#statusText{flex:1;}
+
+/* ── LOADER ── */
+#loaderOverlay{position:fixed;inset:0;background:rgba(13,15,20,.95);z-index:2000;display:none;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(10px);}
+.loader-card{width:320px;text-align:center;}
+.loader-title{font-weight:800;font-size:18px;color:var(--accent);margin-bottom:8px;}
+.loader-status{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:20px;}
+.progress-container{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:12px;}
+#progressBar{width:0%;height:100%;background:var(--accent2);transition:width .3s ease;}
+.loader-eta{font-family:'Space Mono',monospace;font-size:10px;color:var(--accent2);}
+
+/* ── COMMAND PALETTE ── */
+#commandPalette{position:fixed;top:18%;left:50%;transform:translateX(-50%);width:500px;background:var(--surface);border:1px solid var(--accent);border-radius:12px;z-index:3000;display:none;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.55);}
+#commandInput{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);padding:14px 16px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;outline:none;}
+.command-item{padding:11px 16px;cursor:pointer;font-size:11px;font-family:'Space Mono',monospace;display:flex;justify-content:space-between;transition:background .1s;}
+.command-item:hover,.command-item.selected{background:var(--accent2);color:#fff;}
+.command-shortcut{color:var(--muted);font-size:10px;}
+
+/* ── MODALS ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1000;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:580px;max-width:96vw;max-height:92vh;overflow-y:auto;}
+.modal h3{font-size:16px;margin-bottom:16px;color:var(--accent);}
+.modal h4{font-size:12px;margin:12px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.modal-close{margin-top:16px;background:var(--border);color:var(--text);width:100%;padding:8px;}
+.modal-input{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;padding:10px 14px;outline:none;transition:border-color .2s;}
+.modal-input:focus{border-color:var(--accent);}
+.input-group{margin-bottom:12px;}
+.input-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;}
+.save-settings-btn{background:var(--green);color:#000;width:100%;padding:10px;margin-top:8px;font-weight:700;}
+.save-settings-btn:hover{filter:brightness(1.1);}
+
+/* ── THEME PICKER ── */
+.theme-picker{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px;}
+.theme-btn{height:40px;border-radius:8px;border:2px solid transparent;cursor:pointer;transition:all .2s;font-size:9px;font-weight:700;text-align:center;}
+.theme-btn.active{border-color:var(--accent);transform:scale(1.05);}
+.theme-btn-dark{background:#0d0f14;color:#00e5ff;}
+.theme-btn-light{background:#f8fafc;color:#0ea5e9;border:1px solid #e2e8f0;}
+.theme-btn-red{background:#3d1520;color:#ff4f6a;}
+.theme-btn-green{background:#153d1e;color:#00ff9d;}
+.theme-btn-blue{background:#152033;color:#00b4ff;}
+
+/* ── PROFILE / RANK ── */
+.rank-badge-big{display:flex;align-items:center;justify-content:center;gap:12px;padding:16px 0 6px;}
+.rank-icon-big{font-size:36px;}
+.rank-name-big{font-size:18px;font-weight:800;}
+.rank-bar-wrap{margin:10px 0 4px;}
+.rank-bar-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.rank-bar-fill{height:100%;border-radius:3px;transition:width .9s;}
+.rank-bar-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);text-align:center;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;}
+.stat-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;}
+.stat-value{font-family:'Space Mono',monospace;font-size:17px;font-weight:700;color:var(--accent);}
+.stat-label{font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;margin-top:3px;}
+.ach-list{max-height:220px;overflow-y:auto;}
+.ach-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.ach-icon{font-size:18px;width:26px;text-align:center;}
+.ach-meta{flex:1;}
+.ach-name{font-size:11px;font-weight:700;}
+.ach-desc{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);}
+.ach-bar{height:3px;background:var(--border);border-radius:2px;margin-top:5px;overflow:hidden;}
+.ach-fill{height:100%;border-radius:2px;transition:width .6s;}
+.ach-unlocked .ach-fill{background:var(--green);}
+.ach-locked .ach-fill{background:var(--accent2);}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:36px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--accent);color:var(--accent);font-family:'Space Mono',monospace;font-size:12px;padding:10px 20px;border-radius:8px;opacity:0;transition:all .3s;pointer-events:none;z-index:9999;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── SWITCH ── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+.toggle-row:last-of-type{border-bottom:none;}
+.toggle-label{font-family:'Space Mono',monospace;font-size:11px;color:var(--text);}
+.toggle-sub{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px;}
+.switch{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:22px;transition:.3s;}
+.slider:before{position:absolute;content:"";height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;}
+input:checked+.slider{background:var(--accent);}
+input:checked+.slider:before{transform:translateX(18px);}
+
+/* ── ASSET GRID ── */
+.asset-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.asset-btn{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);font-size:10px;padding:10px 8px;border-radius:8px;flex-direction:column;gap:4px;height:auto;transition:all .2s;}
+.asset-btn:hover{border-color:var(--accent);background:rgba(0,229,255,.06);}
+.asset-btn span{font-size:18px;}
+
+/* ── ACCESS LEVELS ── */
+.admin-only{display:none;}
+body.is-admin .admin-only{display:flex;}
+body.is-admin .admin-only-block{display:block;}
+.admin-only-block{display:none;}
+
+/* ── GITHUB LOGO PICKER ── */
+#githubLogoModal .logo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px;max-height:420px;overflow-y:auto;padding-right:4px;}
+.logo-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;transition:all .2s;position:relative;text-align:center;}
+.logo-card:hover:not(.logo-locked){border-color:var(--accent);background:rgba(0,229,255,.07);}
+.logo-card.logo-selected{border-color:var(--green);background:rgba(0,255,157,.08);}
+.logo-card.logo-locked{opacity:.5;cursor:not-allowed;}
+.logo-card img,.logo-card canvas{width:48px;height:48px;object-fit:contain;margin:0 auto 6px;display:block;}
+.logo-card-name{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);text-align:center;word-break:break-word;}
+.logo-card-tier{font-size:8px;font-family:'Space Mono',monospace;padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block;text-transform:uppercase;letter-spacing:1px;}
+.tier-free{background:rgba(0,255,157,.15);color:var(--green);}
+.tier-level1{background:rgba(0,229,255,.15);color:var(--accent);}
+.tier-level2{background:rgba(124,58,237,.2);color:#a78bfa;}
+.tier-premium{background:rgba(245,158,11,.2);color:#f59e0b;}
+.tier-anim{background:rgba(255,79,106,.2);color:var(--red);}
+.logo-lock-icon{position:absolute;top:6px;right:6px;font-size:11px;}
+.logo-cat-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.logo-cat-tab{background:var(--border);color:var(--text);font-size:9px;padding:5px 10px;border-radius:6px;cursor:pointer;border:none;font-family:'Space Mono',monospace;letter-spacing:1px;}
+.logo-cat-tab.active{background:var(--accent2);color:#fff;}
+.logo-preview-bar{display:flex;align-items:center;gap:12px;padding:12px;background:rgba(0,0,0,.25);border-radius:8px;border:1px solid var(--border);margin-bottom:12px;}
+.logo-preview-box{width:48px;height:48px;background:var(--panel);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+.logo-preview-box img{max-width:100%;max-height:100%;object-fit:contain;}
+.logo-preview-info{flex:1;}
+.logo-preview-name{font-size:12px;font-weight:700;color:var(--accent);}
+.logo-preview-desc{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px;}
+.anim-picker{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.anim-chip{background:var(--border);color:var(--text);font-size:9px;padding:4px 9px;border-radius:5px;cursor:pointer;border:none;font-family:'Space Mono',monospace;transition:all .2s;}
+.anim-chip:hover,.anim-chip.active{background:var(--accent2);color:#fff;}
+.anim-chip.locked-chip{opacity:.45;cursor:not-allowed;}
+
+/* ── ADMIN LOGO MANAGER ── */
+#adminLogoModal .admin-logo-list{max-height:380px;overflow-y:auto;}
+.admin-logo-row{display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);}
+.admin-logo-row img{width:36px;height:36px;object-fit:contain;border-radius:6px;background:var(--panel);}
+.admin-logo-row-name{flex:1;font-family:'Space Mono',monospace;font-size:10px;color:var(--text);}
+.admin-tier-select{background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:9px;padding:3px 6px;border-radius:5px;outline:none;}
+.admin-lock-toggle{background:var(--border);color:var(--text);font-size:9px;padding:4px 8px;border-radius:5px;cursor:pointer;border:none;font-family:'Space Mono',monospace;}
+.admin-lock-toggle.locked{background:var(--red);color:#fff;}
+
+/* ── MZIP upload ── */
+.mzip-drop-zone{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);}
+.mzip-drop-zone:hover,.mzip-drop-zone.drag-over{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.04);}
+
+/* tab active */
+.btn-tab-active{border:2px solid var(--accent)!important;background:rgba(0,229,255,.1)!important;}
+</style>
+</head>
+<body>
+
+<!-- GATE OVERLAY -->
+<div id="ideGateOverlay">
+  <div class="gate gate-left" id="ideLeftGate"><div class="gate-decor"></div></div>
+  <div class="gate gate-right" id="ideRightGate"><div class="gate-decor"></div></div>
+  <div id="ideGateCrack"></div>
+  <div id="ideGateFog"></div>
+</div>
+
+<!-- SOLO LEVELING RANK UP OVERLAY -->
+<div id="rankUpOverlay">
+  <div class="rank-up-border"></div>
+  <div class="rank-up-particles" id="rankUpParticles"></div>
+  <div class="rank-up-inner">
+    <div class="rank-up-title">⚡ System Alert ⚡</div>
+    <div class="rank-up-crown" id="rankUpCrown">👑</div>
+    <div class="rank-up-congrats">Congratulations!</div>
+    <div class="rank-up-name" id="rankUpRankName">New Rank Achieved!</div>
+    <div class="rank-up-sub" id="rankUpSub">You have proven your worth, Hunter.</div>
+    <button class="rank-up-close" onclick="closeRankUp()">[ CONTINUE ]</button>
+  </div>
+</div>
+
+<!-- PYTHON LOADER -->
+<div id="loaderOverlay">
+  <div class="loader-card">
+    <div class="loader-title">INITIALIZING ENGINE</div>
+    <div class="loader-status" id="loaderStatus">Starting download...</div>
+    <div class="progress-container"><div id="progressBar"></div></div>
+    <div class="loader-eta" id="loaderEta">ESTIMATED TIME: --s</div>
+  </div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div id="commandPalette">
+  <input type="text" id="commandInput" placeholder="Type a command (e.g. 'save', 'run', 'theme', 'logo')...">
+  <div id="commandList"></div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <button id="globalBtn" class="admin-only" onclick="openModal('settingsModal')"><span id="settingsBtnLabel">🌐 Global</span></button>
+    <button id="assetsBtn" class="admin-only" onclick="openModal('assetsModal')">🖼️ Assets</button>
+    <button id="adminLogoBtn" class="admin-only" onclick="openModal('adminLogoModal')">🔐 Logos</button>
+    <button id="mySettingsBtn" onclick="openUserSettings()">⚙️ Settings</button>
+    <button id="loadBtn" onclick="openLoadModal()"><img id="loadBtnIcon" class="btn-icon" style="display:none;" src=""><span id="loadBtnLabel">📂 Load</span></button>
+    <button id="saveBtn" onclick="saveProject()"><img id="saveBtnIcon" class="btn-icon" style="display:none;" src=""><span id="saveBtnLabel">💾 Save</span></button>
+    <button id="profileBtn" onclick="openModal('profileModal')"><img id="profileBtnIcon" class="btn-icon" style="display:none;" src=""><span id="profileBtnLabel">👤 Profile</span></button>
+  </div>
+  <div class="header-logo" id="headerLogoBtn" onclick="toggleCommandPalette()">
+    <img id="headerLogo" src="" alt="logo">
+  </div>
+  <div class="header-right">
+    <input id="projectName" type="text" value="my_project"/>
+    <button id="runBtn" onclick="handleRunClick()"><img id="runBtnIcon" class="btn-icon" style="display:none;" src=""><span id="runBtnLabel">▶ RUN</span></button>
+    <button id="themeToggle">🎨</button>
+    <button id="logoPickerBtn" onclick="openModal('githubLogoModal')" title="Change Logo">🖼️ Logo</button>
+    <button id="logoutBtn" onclick="logout()">↩ EXIT</button>
+  </div>
+</header>
+
+<!-- MAIN EDITOR AREA -->
+<main>
+  <div id="consoleBg"></div>
+  <div class="editor-panel">
+    <div class="panel-label">editor — python</div>
+    <div id="editor"></div>
+  </div>
+  <div class="output-panel">
+    <div class="output-header">
+      <span class="panel-label" id="consoleLabel">console</span>
+      <button id="clearBtn">✕ clear</button>
+    </div>
+    <div id="output-container">
+      <div id="output"></div>
+      <div id="console-input-line">
+        <span id="console-prompt">>>></span>
+        <input type="text" id="console-input" placeholder="Type Python here..." autocomplete="off">
+      </div>
+    </div>
+  </div>
+  <div class="boss-sidebar">
+    <div class="boss-header">
+      <div class="boss-avatar" id="bossAvatar">🕶️</div>
+      <div>
+        <div class="boss-name" id="bossDisplayName">Boss AI</div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);">Personal IDE</div>
+      </div>
+    </div>
+    <div class="boss-chat" id="bossChat"></div>
+    <div class="typing-indicator" id="typingIndicator" style="display:none;">Boss is watching you type...</div>
+  </div>
+</main>
+
+<div id="statusBar"><span id="statusText">⚡ Engine standby. Click Run to initialize.</span><span id="pyVersion"></span></div>
+<div id="toast"></div>
+
+<!-- ════ MODALS ════ -->
+
+<!-- ADMIN: GLOBAL SETTINGS -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <h3>🌐 Global Settings <span style="font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;">(Admin)</span></h3>
+    <div class="input-group"><label class="input-label">Site Name</label><input class="modal-input" id="setSiteName" placeholder="PyCloud"></div>
+    <div class="input-group"><label class="input-label">Default AI Display Name</label><input class="modal-input" id="setDisplayName" placeholder="Boss"></div>
+    <div class="input-group"><label class="input-label">Join Passkey</label><input class="modal-input" id="setGlobalPass" placeholder="MOON"></div>
+    <div class="input-group"><label class="input-label">GitHub Repo (for assets)</label><input class="modal-input" id="setGithubRepo" placeholder="owner/repo-name"></div>
+    <button class="save-settings-btn" onclick="saveGlobalSettings()">💾 Save Global Settings</button>
+    <button class="modal-close" onclick="closeModal('settingsModal')">Cancel</button>
+  </div>
+</div>
+
+<!-- ADMIN: GLOBAL ASSETS (Firebase-based) -->
+<div class="modal-bg" id="assetsModal">
+  <div class="modal">
+    <h3>🖼️ Global Asset Manager <span style="font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;">(Admin)</span></h3>
+    <p style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:12px;">Images stored in Firestore as base64. Max ~150KB each.</p>
+    <div class="asset-grid">
+      <button class="asset-btn" onclick="pickAndUpload('logoUrl')"><span>🏷️</span>Site Logo</button>
+      <button class="asset-btn" onclick="pickAndUpload('backgroundUrl')"><span>🌄</span>Login BG</button>
+      <button class="asset-btn" onclick="pickAndUpload('gateLeftUrl')"><span>◀</span>Left Gate</button>
+      <button class="asset-btn" onclick="pickAndUpload('gateRightUrl')"><span>▶</span>Right Gate</button>
+      <button class="asset-btn" onclick="pickAndUpload('settingsIconUrl')"><span>⚙️</span>Settings Icon</button>
+      <button class="asset-btn" onclick="pickAndUpload('profileIconUrl')"><span>👤</span>Profile Icon</button>
+      <button class="asset-btn" onclick="pickAndUpload('runIconUrl')"><span>▶</span>Run Icon</button>
+      <button class="asset-btn" onclick="pickAndUpload('saveIconUrl')"><span>💾</span>Save Icon</button>
+      <button class="asset-btn" onclick="pickAndUpload('loadIconUrl')"><span>📂</span>Load Icon</button>
+      <button class="asset-btn" onclick="pickAndUpload('aiSymbolUrl')"><span>🤖</span>AI Avatar (Global)</button>
+    </div>
+    <div id="uploadProgress" style="display:none;margin-top:12px;">
+      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:4px;">Processing...</div>
+      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="uploadBar" style="height:100%;background:var(--accent);width:0%;transition:width .3s;"></div></div>
+    </div>
+    <button class="modal-close" onclick="closeModal('assetsModal')">Close</button>
+  </div>
+</div>
+
+<!-- ADMIN: LOGO PERMISSION MANAGER -->
+<div class="modal-bg" id="adminLogoModal">
+  <div class="modal">
+    <h3>🔐 Logo Permission Manager <span style="font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;">(Admin)</span></h3>
+    <p style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:12px;">Control which logos are free/locked and their tier requirements. Changes save to Firestore and apply for all users.</p>
+    <h4>➕ Add Logo to Catalog</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <input class="modal-input" id="newLogoName" placeholder="Logo name (e.g. Run Icon)">
+      <input class="modal-input" id="newLogoUrl" placeholder="GitHub raw URL or paste base64">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+      <select class="modal-input" id="newLogoTier" style="padding:10px 8px;">
+        <option value="free">🟢 Free</option>
+        <option value="level1">🔵 Level 1 (1000 XP)</option>
+        <option value="level2">🟣 Level 2 (5000 XP)</option>
+        <option value="premium">🟡 Premium (20000 XP)</option>
+        <option value="anim">🔴 Animation Pack</option>
+      </select>
+      <select class="modal-input" id="newLogoTarget" style="padding:10px 8px;">
+        <option value="logo">Header Logo</option>
+        <option value="run">Run Button</option>
+        <option value="save">Save Button</option>
+        <option value="load">Load Button</option>
+        <option value="profile">Profile Button</option>
+        <option value="ai">AI Avatar</option>
+      </select>
+      <button onclick="adminAddLogo()" style="background:var(--green);color:#000;font-family:'Space Mono',monospace;font-size:10px;border-radius:8px;border:none;cursor:pointer;font-weight:700;">➕ Add</button>
+    </div>
+    <h4>📋 Catalog</h4>
+    <div class="admin-logo-list" id="adminLogoList">Loading...</div>
+    <div style="margin-top:12px;display:flex;gap:8px;">
+      <button onclick="syncGithubAssets()" style="background:var(--accent2);color:#fff;font-family:'Space Mono',monospace;font-size:10px;border-radius:8px;border:none;cursor:pointer;padding:8px 14px;font-weight:700;">🔄 Sync from GitHub</button>
+      <button onclick="saveLogoCatalog()" class="save-settings-btn" style="flex:1;margin:0;">💾 Save All Changes</button>
+    </div>
+    <button class="modal-close" onclick="closeModal('adminLogoModal')">Close</button>
+  </div>
+</div>
+
+<!-- USER: GITHUB LOGO PICKER -->
+<div class="modal-bg" id="githubLogoModal">
+  <div class="modal">
+    <h3>🖼️ Choose Your Logo</h3>
+    <div class="logo-preview-bar">
+      <div class="logo-preview-box"><img id="logoPreviewImg" src="" style="display:none;"></div>
+      <div class="logo-preview-info">
+        <div class="logo-preview-name" id="logoPreviewName">No logo selected</div>
+        <div class="logo-preview-desc" id="logoPreviewDesc">Pick from the gallery below</div>
+      </div>
+    </div>
+    <h4>🎬 Animation Style</h4>
+    <div class="anim-picker" id="animPicker">
+      <button class="anim-chip active" data-anim="">None</button>
+      <button class="anim-chip" data-anim="logo-anim-pulse">Pulse</button>
+      <button class="anim-chip" data-anim="logo-anim-spin">Spin</button>
+      <button class="anim-chip" data-anim="logo-anim-bounce">Bounce</button>
+      <button class="anim-chip" data-anim="logo-anim-glitch">Glitch</button>
+      <button class="anim-chip" data-anim="logo-anim-wave">Wave</button>
+    </div>
+    <div style="margin-top:10px;margin-bottom:6px;">
+      <h4>📂 Upload Custom Logo / Animation Pack (.mzip)</h4>
+      <div class="mzip-drop-zone" id="mzipDropZone" onclick="triggerMzipUpload()">
+        Drop .mzip / image here or click to upload<br>
+        <span style="font-size:9px;color:var(--muted);margin-top:4px;display:block;">Supported: .png .jpg .gif .mzip</span>
+      </div>
+      <input type="file" id="mzipFileInput" accept=".mzip,.png,.jpg,.jpeg,.gif,.webp" style="display:none;" onchange="handleLogoUpload(this)">
+    </div>
+    <div class="logo-cat-tabs" id="logoCatTabs">
+      <button class="logo-cat-tab active" data-cat="all" onclick="filterLogoGallery('all',this)">All</button>
+      <button class="logo-cat-tab" data-cat="free" onclick="filterLogoGallery('free',this)">🟢 Free</button>
+      <button class="logo-cat-tab" data-cat="level1" onclick="filterLogoGallery('level1',this)">🔵 Level 1</button>
+      <button class="logo-cat-tab" data-cat="level2" onclick="filterLogoGallery('level2',this)">🟣 Level 2</button>
+      <button class="logo-cat-tab" data-cat="premium" onclick="filterLogoGallery('premium',this)">🟡 Premium</button>
+      <button class="logo-cat-tab" data-cat="anim" onclick="filterLogoGallery('anim',this)">🔴 Animations</button>
+    </div>
+    <div class="logo-grid" id="logoGallery">
+      <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);grid-column:1/-1;padding:20px;text-align:center;">Loading logos...</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button onclick="applySelectedLogo()" style="flex:1;background:var(--green);color:#000;font-family:'Space Mono',monospace;font-size:11px;padding:10px;border-radius:8px;border:none;cursor:pointer;font-weight:700;">✅ Apply Logo</button>
+      <button onclick="resetLogo()" style="background:var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:10px;padding:10px 16px;border-radius:8px;border:none;cursor:pointer;">Reset</button>
+    </div>
+    <button class="modal-close" onclick="closeModal('githubLogoModal')">Close</button>
+  </div>
+</div>
+
+<!-- USER: MY SETTINGS -->
+<div class="modal-bg" id="userSettingsModal">
+  <div class="modal">
+    <h3>⚙️ My Settings</h3>
+    <h4>🤖 AI Companion</h4>
+    <div class="input-group"><label class="input-label">AI Name</label><input class="modal-input" id="myAiName" placeholder="Boss AI" maxlength="30"></div>
+    <div class="input-group"><label class="input-label">Console Label</label><input class="modal-input" id="myConsoleName" placeholder="console" maxlength="20"></div>
+    <h4>🎨 My Visuals</h4>
+    <div class="asset-grid" style="margin-bottom:16px;">
+      <button class="asset-btn" onclick="pickAndUploadUser('aiSymbolUrl')"><span>🤖</span>AI Avatar</button>
+      <button class="asset-btn" onclick="pickAndUploadUser('consoleBgUrl')"><span>🖥️</span>Console BG</button>
+    </div>
+    <h4>🎬 Animation</h4>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Gate Animation</div><div class="toggle-sub">The door opening effect on login</div></div>
+      <label class="switch"><input type="checkbox" id="gateAnimToggle" checked><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Logo Animation</div><div class="toggle-sub">Animate your selected logo</div></div>
+      <label class="switch"><input type="checkbox" id="logoAnimToggle" checked><span class="slider"></span></label>
+    </div>
+    <button class="save-settings-btn" onclick="saveUserSettings()" style="margin-top:16px;">💾 Save My Settings</button>
+    <button class="modal-close" onclick="closeModal('userSettingsModal')">Cancel</button>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-bg" id="profileModal">
+  <div class="modal">
+    <h3>👤 <span id="profileNameDisplay">User</span></h3>
+    <div id="profileRankBadge" class="rank-badge-big"></div>
+    <div id="profileScore" style="text-align:center;font-weight:800;font-size:24px;color:var(--accent);"></div>
+    <div class="rank-bar-wrap">
+      <div class="rank-bar-track"><div id="profileRankBar" class="rank-bar-fill"></div></div>
+      <div id="profileRankLabel" class="rank-bar-label"></div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);text-align:center;padding:4px 0 8px;" id="profileLogoAccess"></div>
+    <div id="profileStats" class="stat-grid"></div>
+    <h4 style="margin-bottom:8px;">Achievements</h4>
+    <div id="profileAchievements" class="ach-list"></div>
+    <div class="admin-only-block" style="margin-top:16px;">
+      <details><summary style="font-size:10px;color:var(--muted);cursor:pointer;font-family:'Space Mono',monospace;">ADMIN STAT OVERRIDE</summary>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+          <input class="modal-input" id="admin_lettersTyped" placeholder="Keys">
+          <input class="modal-input" id="admin_backspaces" placeholder="Back">
+          <input class="modal-input" id="admin_runsSuccessful" placeholder="Runs">
+          <input class="modal-input" id="admin_linesTyped" placeholder="Lines">
+          <input class="modal-input" id="admin_functionsRun" placeholder="Funcs">
+        </div>
+        <button onclick="saveAdminStats()" style="width:100%;margin-top:8px;background:var(--red);color:#fff;font-family:'Space Mono',monospace;font-size:10px;border-radius:8px;border:none;cursor:pointer;padding:8px;">Apply Override</button>
+      </details>
+    </div>
+    <button class="modal-close" onclick="closeModal('profileModal')">Close</button>
+  </div>
+</div>
+
+<!-- LOAD PROJECT MODAL -->
+<div class="modal-bg" id="loadModal">
+  <div class="modal">
+    <h3>📂 Load Project</h3>
+    <div id="projectList" style="max-height:300px;overflow-y:auto;"></div>
+    <button class="modal-close" onclick="closeModal('loadModal')">Close</button>
+  </div>
+</div>
+
+<!-- ════ SCRIPTS ════ -->
+<script>
+/* ── CONSTANTS ── */
+const BOSS_MESSAGES=["Nice code, Boss. Very clean.","Are we hacking NASA today?","Your logic is impeccable.","I'm tracking every keystroke.","Should I order some coffee?","That's a bold move, Boss.","Is that a bug or a feature?","I've seen better, but this works.","You're coding like a legend.","Boss, you're on fire!","Wait, did you mean to do that?","I'm learning so much from you.","Your syntax is like poetry.","Don't forget to save, Boss.","Is it time for a break?","You're making this look easy.","I'm impressed, and I'm an AI.","Boss, you're a coding beast.","That function is a masterpiece.","I'm your biggest fan, Boss.","Let's crush some bugs!","Your code is solid as a rock.","I'm here if you need a hint.","Boss, you're the master of Python.","That's some high-level logic.","I'm watching your back, Boss.","You're building something epic.","Your progress is legendary.","I've never seen code like this.","Boss, you're a genius.","Let's make some magic happen.","Your code is crystal clear.","I'm proud to be your assistant.","Boss, you're the king of the IDE.","That's a pro-level optimization.","I'm keeping an eye on your stats.","You're leveling up fast, Boss.","Your code is a work of art.","I'm here to serve, Boss.","Let's finish this project!","Boss, you're a coding ninja.","That's a very clever solution.","I'm always learning from you.","Your logic is top-tier, Boss.","I'm your loyal AI assistant.","Let's write some history, Boss.","Your code is flawless.","I'm here for you, Boss.","Boss, you're the best coder I know.","That's a legendary achievement!"];
+
+const ACHIEVEMENTS_DATA=[];
+for(let i=1;i<=30;i++) ACHIEVEMENTS_DATA.push({id:`key_${i}`,stat:'lettersTyped',need:i*1000,icon:'⌨️',name:`Key Master ${i}`,desc:`${(i*1000).toLocaleString()} keys pressed`});
+for(let i=1;i<=30;i++) ACHIEVEMENTS_DATA.push({id:`run_${i}`,stat:'runsSuccessful',need:i*10,icon:'🚀',name:`Runner ${i}`,desc:`${i*10} successful runs`});
+for(let i=1;i<=30;i++) ACHIEVEMENTS_DATA.push({id:`line_${i}`,stat:'linesTyped',need:i*100,icon:'📝',name:`Line Lord ${i}`,desc:`${(i*100).toLocaleString()} lines typed`});
+for(let i=1;i<=30;i++) ACHIEVEMENTS_DATA.push({id:`back_${i}`,stat:'backspaces',need:i*200,icon:'🔙',name:`Eraser ${i}`,desc:`${(i*200).toLocaleString()} backspaces`});
+for(let i=1;i<=30;i++) ACHIEVEMENTS_DATA.push({id:`func_${i}`,stat:'functionsRun',need:i*20,icon:'⚙️',name:`Functionist ${i}`,desc:`${i*20} functions executed`});
+
+const KEYWORD_REACTIONS={import:"Importing more power, Boss?",def:"Defining a new masterpiece?",class:"Building a new architecture, Boss?",try:"Handling errors like a pro.",print:"Debugging or just talking to me?",while:"Infinite loops are for mortals, Boss.",if:"Making the tough decisions, I see.",return:"Returning to greatness, Boss."};
+
+const RANKS=[
+  {name:'Beginner Coder',icon:'🌱',min:0,color:'#4a5568'},
+  {name:'Intermediate Coder',icon:'⚡',min:1000,color:'#00e5ff'},
+  {name:'Epic Coder',icon:'🔥',min:5000,color:'#00ff9d'},
+  {name:'Legendary Coder',icon:'👑',min:20000,color:'#f59e0b'},
+  {name:'Mythic Coder',icon:'🌌',min:100000,color:'#7c3aed'}
+];
+
+/* ── GITHUB LOGO SYSTEM ── */
+const GITHUB_RAW='https://raw.githubusercontent.com/saiprashantkaranam-ship-it/Public-IDE/main/assets/';
+const GITHUB_API='https://api.github.com/repos/saiprashantkaranam-ship-it/Public-IDE/contents/assets';
+
+// Default catalog - admin can add/modify
+const DEFAULT_LOGO_CATALOG=[
+  {id:'run-icon',   name:'Run Icon',   url:`${GITHUB_RAW}Run.png`,      tier:'free',   target:'run',     desc:'Classic run button icon'},
+  {id:'settings',   name:'Settings',   url:`${GITHUB_RAW}Settings.png`, tier:'free',   target:'profile', desc:'Settings gear icon'},
+  {id:'ai-logo',    name:'AI Logo',    url:`${GITHUB_RAW}Ai.png`,       tier:'level1', target:'logo',    desc:'AI brain logo — Level 1'},
+  {id:'load-icon',  name:'Load Icon',  url:`${GITHUB_RAW}Load.png`,     tier:'free',   target:'load',    desc:'Folder load icon'},
+  {id:'save-icon',  name:'Save Icon',  url:`${GITHUB_RAW}Save.png`,     tier:'free',   target:'save',    desc:'Save disk icon'},
+  {id:'neon-bolt',  name:'Neon Bolt',  url:'',isEmoji:true,emoji:'⚡',  tier:'level1', target:'logo',    desc:'Lightning bolt — Level 1'},
+  {id:'fire-logo',  name:'Fire Logo',  url:'',isEmoji:true,emoji:'🔥',  tier:'level2', target:'logo',    desc:'Fire — Epic rank required'},
+  {id:'crown-logo', name:'Crown',      url:'',isEmoji:true,emoji:'👑',  tier:'premium',target:'logo',    desc:'Crown — Legendary rank required'},
+  {id:'cosmos',     name:'Cosmos',     url:'',isEmoji:true,emoji:'🌌',  tier:'premium',target:'logo',    desc:'Cosmos — Mythic rank only'},
+  {id:'cyber-ai',   name:'Cyber AI',   url:'',isEmoji:true,emoji:'🤖',  tier:'free',   target:'ai',      desc:'Default AI avatar'},
+  {id:'alien-ai',   name:'Alien AI',   url:'',isEmoji:true,emoji:'👾',  tier:'level1', target:'ai',      desc:'Alien avatar — Level 1'},
+];
+
+const TIER_XP_REQ={free:0,level1:1000,level2:5000,premium:20000,anim:5000};
+const TIER_LABELS={free:'Free',level1:'Level 1 • 1k XP',level2:'Level 2 • 5k XP',premium:'Premium • 20k XP',anim:'Anim Pack • 5k XP'};
+
+let _logoCatalog=JSON.parse(localStorage.getItem('pycloud_logo_catalog')||JSON.stringify(DEFAULT_LOGO_CATALOG));
+let _selectedLogoId=localStorage.getItem('pycloud_active_logo')||null;
+let _selectedLogoAnim=localStorage.getItem('pycloud_logo_anim')||'';
+let _selectedLogoTarget=localStorage.getItem('pycloud_logo_target')||'logo';
+let _currentGalleryFilter='all';
+let _tempSelectedLogo=null;
+let _tempSelectedAnim=_selectedLogoAnim;
+</script>
+
+<!-- FIREBASE MODULE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc, collection, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig={
+  apiKey:"AIzaSyCOKp_ksThO3E_oc_H7NWMqkPTuLoDrrKI",
+  authDomain:"ideqvr.firebaseapp.com",projectId:"ideqvr",
+  storageBucket:"ideqvr.firebasestorage.app",messagingSenderId:"258032258981",
+  appId:"1:258032258981:web:d302dcc896d5ab18c2e24c",measurementId:"G-JDEF11SPS6"
+};
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+window._db=db;
+window._firestoreFns={doc,setDoc,getDoc,getDocs,deleteDoc,collection,onSnapshot,increment};
+
+const userId=sessionStorage.getItem('pycloud_userId');
+const userRole=sessionStorage.getItem('pycloud_role');
+if(!userId){window.location.href='index.html';}
+if(userRole==='superadmin') document.body.classList.add('is-admin');
+
+window._userSettings={};
+window._globalSettings={};
+
+function applyBtnIcon(id,url){const el=document.getElementById(id);if(el&&url){el.src=url;el.style.display='inline-block';}}
+
+function applyUserOverrides(){
+  const d=window._userSettings;if(!d)return;
+  if(d.aiName) document.getElementById('bossDisplayName').textContent=d.aiName;
+  if(d.consoleName){const el=document.getElementById('consoleLabel');if(el)el.textContent=d.consoleName;}
+  if(d.assets?.aiSymbolUrl) document.getElementById('bossAvatar').innerHTML=`<img src="${d.assets.aiSymbolUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+  if(d.assets?.consoleBgUrl) document.getElementById('consoleBg').style.backgroundImage=`url('${d.assets.consoleBgUrl}')`;
+}
+
+// ── GLOBAL SETTINGS LISTENER ──
+onSnapshot(doc(db,'settings','global'),(docSnap)=>{
+  if(!docSnap.exists())return;
+  const data=docSnap.data();
+  window._globalSettings=data;
+  if(data.assets?.logoUrl){
+    const hLogo=document.getElementById('headerLogo');
+    hLogo.src=data.assets.logoUrl;
+    hLogo.classList.add('loaded');
+  }
+  if(data.siteName) document.getElementById('setSiteName').value=data.siteName;
+  if(data.displayName) document.getElementById('setDisplayName').value=data.displayName;
+  if(data.displayName&&!window._userSettings?.aiName)
+    document.getElementById('bossDisplayName').textContent=data.displayName+' AI';
+  if(data.assets?.aiSymbolUrl&&!window._userSettings?.assets?.aiSymbolUrl)
+    document.getElementById('bossAvatar').innerHTML=`<img src="${data.assets.aiSymbolUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+  if(data.assets?.consoleBgUrl&&!window._userSettings?.assets?.consoleBgUrl)
+    document.getElementById('consoleBg').style.backgroundImage=`url('${data.assets.consoleBgUrl}')`;
+  if(data.assets?.gateLeftUrl) document.getElementById('ideLeftGate').style.backgroundImage=`url('${data.assets.gateLeftUrl}')`;
+  if(data.assets?.gateRightUrl) document.getElementById('ideRightGate').style.backgroundImage=`url('${data.assets.gateRightUrl}')`;
+  applyBtnIcon('settingsBtnIcon',data.assets?.settingsIconUrl);
+  applyBtnIcon('profileBtnIcon',data.assets?.profileIconUrl);
+  applyBtnIcon('runBtnIcon',data.assets?.runIconUrl);
+  applyBtnIcon('saveBtnIcon',data.assets?.saveIconUrl);
+  applyBtnIcon('loadBtnIcon',data.assets?.loadIconUrl);
+  // Logo catalog from Firestore (admin may have updated)
+  if(data.logoCatalog){
+    window._logoCatalog=data.logoCatalog;
+    localStorage.setItem('pycloud_logo_catalog',JSON.stringify(data.logoCatalog));
+  }
+  applyUserOverrides();
+});
+
+// ── USER SETTINGS LISTENER ──
+onSnapshot(doc(db,'users',userId),(docSnap)=>{
+  if(!docSnap.exists())return;
+  const data=docSnap.data();
+  window._userSettings=data;
+  const displayName=data.name||sessionStorage.getItem('pycloud_displayName')||userId;
+  document.getElementById('profileNameDisplay').textContent=displayName;
+  applyUserOverrides();
+});
+
+// ── STATS LISTENER ──
+onSnapshot(doc(db,'stats',userId),(docSnap)=>{
+  if(docSnap.exists()){
+    const prev=window._statsData||{};
+    window._statsData=docSnap.data();
+    if(window._renderProfile) window._renderProfile();
+    if(window._checkAchievements) window._checkAchievements();
+    if(window._checkRankUp) window._checkRankUp(prev);
+  }
+});
+
+// ── STATS FLUSH ──
+window._flushStats=async function(){
+  const delta=window._statsDelta;if(!delta)return;
+  const total=(delta.lettersTyped||0)+(delta.backspaces||0)+(delta.runsSuccessful||0)+(delta.linesTyped||0)+(delta.functionsRun||0);
+  if(total===0)return;
+  window._statsDelta={lettersTyped:0,backspaces:0,runsSuccessful:0,linesTyped:0,functionsRun:0};
+  try{
+    await setDoc(doc(db,'stats',userId),{
+      lettersTyped:increment(delta.lettersTyped||0),
+      backspaces:increment(delta.backspaces||0),
+      runsSuccessful:increment(delta.runsSuccessful||0),
+      linesTyped:increment(delta.linesTyped||0),
+      functionsRun:increment(delta.functionsRun||0)
+    },{merge:true});
+  }catch(e){console.warn('Stats flush failed:',e.message);}
+};
+setInterval(()=>window._flushStats(),30000);
+window.addEventListener('beforeunload',()=>window._flushStats());
+
+// ── SAVE GLOBAL SETTINGS ──
+window.saveGlobalSettings=async function(){
+  const name=document.getElementById('setSiteName').value.trim();
+  const disp=document.getElementById('setDisplayName').value.trim();
+  const pass=document.getElementById('setGlobalPass').value.trim();
+  const ghRepo=document.getElementById('setGithubRepo').value.trim();
+  const updates={};
+  if(name) updates.siteName=name;
+  if(disp) updates.displayName=disp;
+  if(pass) updates.globalPass=pass;
+  if(ghRepo) updates.githubRepo=ghRepo;
+  try{
+    await setDoc(doc(db,'settings','global'),updates,{merge:true});
+    showToast('✅ Global settings saved!');
+    closeModal('settingsModal');
+  }catch(e){showToast('❌ '+e.message);}
+};
+
+// ── SAVE LOGO CATALOG (admin) ──
+window.saveLogoCatalog=async function(){
+  try{
+    await setDoc(doc(db,'settings','global'),{logoCatalog:window._logoCatalog},{merge:true});
+    localStorage.setItem('pycloud_logo_catalog',JSON.stringify(window._logoCatalog));
+    showToast('✅ Logo catalog saved!');
+    renderAdminLogoList();
+  }catch(e){showToast('❌ '+e.message);}
+};
+
+// ── SAVE USER SETTINGS ──
+window.saveUserSettings=async function(){
+  const uid=sessionStorage.getItem('pycloud_userId');
+  const aiName=document.getElementById('myAiName').value.trim();
+  const consoleName=document.getElementById('myConsoleName').value.trim();
+  const gateEnabled=document.getElementById('gateAnimToggle').checked;
+  const logoAnimEnabled=document.getElementById('logoAnimToggle').checked;
+  localStorage.setItem('pycloud_gate_anim',gateEnabled?'on':'off');
+  localStorage.setItem('pycloud_logo_anim_enabled',logoAnimEnabled?'on':'off');
+  const updates={};
+  if(aiName) updates.aiName=aiName;
+  if(consoleName) updates.consoleName=consoleName;
+  if(Object.keys(updates).length>0){
+    try{
+      await setDoc(doc(db,'users',uid),updates,{merge:true});
+    }catch(e){showToast('❌ Save failed: '+e.message);return;}
+  }
+  showToast('✅ Settings saved!');
+  closeModal('userSettingsModal');
+};
+
+// ── SAVE ADMIN STATS ──
+window.saveAdminStats=async function(){
+  const uid=sessionStorage.getItem('pycloud_userId');
+  const s={
+    lettersTyped:parseInt(document.getElementById('admin_lettersTyped').value)||0,
+    backspaces:parseInt(document.getElementById('admin_backspaces').value)||0,
+    runsSuccessful:parseInt(document.getElementById('admin_runsSuccessful').value)||0,
+    linesTyped:parseInt(document.getElementById('admin_linesTyped').value)||0,
+    functionsRun:parseInt(document.getElementById('admin_functionsRun').value)||0
+  };
+  try{
+    await setDoc(doc(db,'stats',uid),s,{merge:true});
+    showToast('✅ Stats overridden!');
+  }catch(e){showToast('❌ '+e.message);}
+};
+
+// ── COMPRESS & UPLOAD (base64 → Firestore) ──
+window._compressAndUpload=async function(file,key,isUserAsset=false){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=async(e)=>{
+      const img=new Image();
+      img.onload=async()=>{
+        const canvas=document.createElement('canvas');
+        const isSmall=key.includes('Symbol')||key.includes('Icon')||key.includes('logo')||key.includes('Logo');
+        const MAX_W=isSmall?300:1280,MAX_H=isSmall?300:720;
+        let w=img.naturalWidth,h=img.naturalHeight;
+        if(w>MAX_W||h>MAX_H){const r=Math.min(MAX_W/w,MAX_H/h);w=Math.round(w*r);h=Math.round(h*r);}
+        canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        const base64=canvas.toDataURL('image/jpeg',isSmall?0.82:0.70);
+        try{
+          if(isUserAsset){
+            const uid=sessionStorage.getItem('pycloud_userId');
+            await setDoc(doc(db,'users',uid),{assets:{[key]:base64}},{merge:true});
+          }else{
+            await setDoc(doc(db,'settings','global'),{assets:{[key]:base64}},{merge:true});
+          }
+          resolve(base64);
+        }catch(err){reject(err);}
+      };
+      img.onerror=reject;
+      img.src=e.target.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+window.pickAndUpload=function(key){
+  const i=document.createElement('input');i.type='file';i.accept='image/*';
+  i.onchange=async(e)=>{
+    const f=e.target.files[0];if(!f)return;
+    document.getElementById('uploadProgress').style.display='block';
+    try{await window._compressAndUpload(f,key,false);showToast('✅ Global asset synced!');}
+    catch(err){showToast('❌ Upload failed: '+err.message);}
+    document.getElementById('uploadProgress').style.display='none';
+  };i.click();
+};
+
+window.pickAndUploadUser=function(key){
+  const i=document.createElement('input');i.type='file';i.accept='image/*';
+  i.onchange=async(e)=>{
+    const f=e.target.files[0];if(!f)return;
+    showToast('⏳ Processing...');
+    try{await window._compressAndUpload(f,key,true);showToast('✅ Asset updated!');}
+    catch(err){showToast('❌ Failed: '+err.message);}
+  };i.click();
+};
+</script>
+
+<!-- MONACO + EDITOR -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+<script>
+let editor,pyodide,pyodideReady=false,isDownloading=false;
+const output=document.getElementById('output');
+const bossChat=document.getElementById('bossChat');
+const consoleInput=document.getElementById('console-input');
+const typingIndicator=document.getElementById('typingIndicator');
+window._statsDelta={lettersTyped:0,backspaces:0,runsSuccessful:0,linesTyped:0,functionsRun:0};
+
+/* ── GATE ANIMATION ── */
+if(sessionStorage.getItem('just_logged_in')){
+  const gateEnabled=localStorage.getItem('pycloud_gate_anim')!=='off';
+  if(gateEnabled){
+    const gate=document.getElementById('ideGateOverlay');
+    gate.classList.add('gate-visible');
+    setTimeout(()=>gate.classList.add('opening'),100);
+    setTimeout(()=>{
+      gate.style.transition='opacity 0.5s';gate.style.opacity='0';
+      setTimeout(()=>{gate.style.display='none';gate.classList.add('gate-done');},500);
+    },3500);
+  }
+  sessionStorage.removeItem('just_logged_in');
+}
+
+/* ── THEME ── */
+const THEMES=['dark','light','red','green','blue'];
+const MONACO_THEMES={dark:'vs-dark',light:'vs',red:'theme-red',green:'theme-green',blue:'theme-blue'};
+let currentTheme=localStorage.getItem('pycloud_theme')||'dark';
+function setTheme(name){
+  currentTheme=name;
+  document.body.classList.remove(...THEMES.map(t=>'theme-'+t));
+  if(name!=='dark') document.body.classList.add('theme-'+name);
+  localStorage.setItem('pycloud_theme',name);
+  if(typeof monaco!=='undefined') monaco.editor.setTheme(MONACO_THEMES[name]||'vs-dark');
+}
+setTheme(currentTheme);
+document.getElementById('themeToggle').onclick=()=>{
+  let idx=(THEMES.indexOf(currentTheme)+1)%THEMES.length;
+  setTheme(THEMES[idx]);
+  showToast('Theme: '+THEMES[idx].toUpperCase());
+};
+
+/* ══════════════════════════════════════════════
+   GITHUB LOGO SYSTEM
+══════════════════════════════════════════════ */
+function calcScore(s){return Math.floor((s.lettersTyped||0)*.5+(s.runsSuccessful||0)*50+(s.linesTyped||0)*3+(s.functionsRun||0)*30);}
+
+function getUserXP(){return calcScore(window._statsData||{});}
+
+function canAccessTier(tier){
+  const xp=getUserXP();
+  return xp>=TIER_XP_REQ[tier];
+}
+
+function getRankName(){
+  const xp=getUserXP();
+  let rank=RANKS[0];
+  for(const r of RANKS){if(xp>=r.min)rank=r;}
+  return rank.name;
+}
+
+/* Render admin logo list */
+window.renderAdminLogoList=function(){
+  const list=document.getElementById('adminLogoList');
+  if(!list) return;
+  const cat=window._logoCatalog||DEFAULT_LOGO_CATALOG;
+  if(!cat.length){list.innerHTML='<div style="font-family:\'Space Mono\',monospace;font-size:11px;color:var(--muted);padding:12px;">No logos in catalog.</div>';return;}
+  list.innerHTML=cat.map((logo,idx)=>`
+    <div class="admin-logo-row">
+      ${logo.isEmoji
+        ? `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--panel);border-radius:6px;">${logo.emoji}</div>`
+        : `<img src="${logo.url||''}" onerror="this.style.opacity='.3'" alt="${logo.name}">`
+      }
+      <div class="admin-logo-row-name">${logo.name}<br><span style="color:var(--muted);font-size:8px;">${logo.target} • ${logo.id}</span></div>
+      <select class="admin-tier-select" onchange="updateLogoCatalogEntry(${idx},'tier',this.value)">
+        <option value="free" ${logo.tier==='free'?'selected':''}>🟢 Free</option>
+        <option value="level1" ${logo.tier==='level1'?'selected':''}>🔵 L1</option>
+        <option value="level2" ${logo.tier==='level2'?'selected':''}>🟣 L2</option>
+        <option value="premium" ${logo.tier==='premium'?'selected':''}>🟡 Prem</option>
+        <option value="anim" ${logo.tier==='anim'?'selected':''}>🔴 Anim</option>
+      </select>
+      <button class="admin-lock-toggle ${logo.locked?'locked':''}" onclick="toggleLogoLock(${idx})">${logo.locked?'🔒':'🔓'}</button>
+      <button onclick="removeLogoEntry(${idx})" style="background:var(--red);color:#fff;font-size:9px;padding:3px 7px;border-radius:4px;border:none;cursor:pointer;">✕</button>
+    </div>
+  `).join('');
+};
+
+window.updateLogoCatalogEntry=function(idx,field,val){
+  window._logoCatalog[idx][field]=val;
+};
+window.toggleLogoLock=function(idx){
+  window._logoCatalog[idx].locked=!window._logoCatalog[idx].locked;
+  renderAdminLogoList();
+};
+window.removeLogoEntry=function(idx){
+  window._logoCatalog.splice(idx,1);
+  renderAdminLogoList();
+};
+window.adminAddLogo=function(){
+  const name=document.getElementById('newLogoName').value.trim();
+  const url=document.getElementById('newLogoUrl').value.trim();
+  const tier=document.getElementById('newLogoTier').value;
+  const target=document.getElementById('newLogoTarget').value;
+  if(!name||!url){showToast('⚠️ Name and URL required');return;}
+  const id='custom-'+Date.now();
+  window._logoCatalog.push({id,name,url,tier,target,desc:'Custom logo',locked:false});
+  document.getElementById('newLogoName').value='';
+  document.getElementById('newLogoUrl').value='';
+  renderAdminLogoList();
+  showToast('➕ Logo added to catalog');
+};
+
+/* Sync available images from GitHub API */
+window.syncGithubAssets=async function(){
+  showToast('🔄 Fetching GitHub assets...');
+  try{
+    const r=await fetch(GITHUB_API);
+    if(!r.ok) throw new Error('GitHub API: '+r.status);
+    const files=await r.json();
+    let added=0;
+    for(const f of files){
+      if(f.type!=='file') continue;
+      const ext=f.name.split('.').pop().toLowerCase();
+      if(!['png','jpg','jpeg','gif','webp','svg'].includes(ext)) continue;
+      const exists=window._logoCatalog.some(l=>l.id==='gh-'+f.name);
+      if(!exists){
+        const nameClean=f.name.replace(/\.[^.]+$/,'').replace(/[-_]/g,' ');
+        window._logoCatalog.push({
+          id:'gh-'+f.name,name:nameClean,
+          url:f.download_url||GITHUB_RAW+f.name,
+          tier:'free',target:'logo',desc:'From GitHub assets',locked:false
+        });
+        added++;
+      }
+    }
+    renderAdminLogoList();
+    showToast(`✅ Synced ${added} new assets from GitHub`);
+  }catch(e){showToast('❌ Sync failed: '+e.message);}
+};
+
+/* Render logo gallery for users */
+window.filterLogoGallery=function(cat,btn){
+  _currentGalleryFilter=cat;
+  document.querySelectorAll('.logo-cat-tab').forEach(t=>t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderLogoGallery();
+};
+
+function renderLogoGallery(){
+  const gallery=document.getElementById('logoGallery');
+  if(!gallery) return;
+  const cat=window._logoCatalog||DEFAULT_LOGO_CATALOG;
+  const xp=getUserXP();
+  const filtered=_currentGalleryFilter==='all'?cat:cat.filter(l=>l.tier===_currentGalleryFilter);
+
+  if(!filtered.length){
+    gallery.innerHTML=`<div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);grid-column:1/-1;padding:20px;text-align:center;">No logos in this category.</div>`;
+    return;
+  }
+
+  gallery.innerHTML=filtered.map(logo=>{
+    const locked=logo.locked||(xp<TIER_XP_REQ[logo.tier]);
+    const selected=_tempSelectedLogo&&_tempSelectedLogo.id===logo.id;
+    const tierLabel=TIER_LABELS[logo.tier]||logo.tier;
+    const imgHtml=logo.isEmoji
+      ? `<div style="font-size:32px;line-height:48px;height:48px;text-align:center;">${logo.emoji}</div>`
+      : `<img src="${logo.url}" alt="${logo.name}" onerror="this.parentElement.innerHTML='<div style=font-size:28px;>🖼️</div>'" loading="lazy">`;
+    return `<div class="logo-card ${locked?'logo-locked':''} ${selected?'logo-selected':''}" 
+               onclick="${locked?`showLockedTip('${tierLabel}')`:`selectLogoCard('${logo.id}')`}"
+               data-id="${logo.id}">
+      ${locked?'<div class="logo-lock-icon">🔒</div>':''}
+      ${imgHtml}
+      <div class="logo-card-name">${logo.name}</div>
+      <div class="logo-card-tier tier-${logo.tier}">${locked?'🔒 '+tierLabel:tierLabel}</div>
+    </div>`;
+  }).join('');
+}
+
+window.showLockedTip=function(tierLabel){
+  const xp=getUserXP();
+  addBossMsg(`🔒 That logo requires ${tierLabel}. You have ${xp.toLocaleString()} XP. Keep coding to unlock it!`);
+  showToast(`🔒 Requires ${tierLabel}`);
+};
+
+window.selectLogoCard=function(id){
+  const logo=window._logoCatalog.find(l=>l.id===id);
+  if(!logo) return;
+  _tempSelectedLogo=logo;
+  // Update selection UI
+  document.querySelectorAll('.logo-card').forEach(c=>c.classList.remove('logo-selected'));
+  document.querySelectorAll(`.logo-card[data-id="${id}"]`).forEach(c=>c.classList.add('logo-selected'));
+  // Update preview
+  const prev=document.getElementById('logoPreviewImg');
+  const prevName=document.getElementById('logoPreviewName');
+  const prevDesc=document.getElementById('logoPreviewDesc');
+  if(logo.isEmoji){
+    prev.style.display='none';
+    prev.previousElementSibling && (prev.previousElementSibling.remove());
+    const emojiDiv=document.createElement('div');
+    emojiDiv.style.cssText='font-size:32px;line-height:48px;';
+    emojiDiv.textContent=logo.emoji;
+    prev.parentNode.insertBefore(emojiDiv,prev);
+  }else{
+    prev.src=logo.url;prev.style.display='block';
+  }
+  prevName.textContent=logo.name;
+  prevDesc.textContent=logo.desc||TIER_LABELS[logo.tier];
+};
+
+/* Animation chip selection */
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.anim-chip').forEach(chip=>{
+    chip.onclick=()=>{
+      const xp=getUserXP();
+      const anim=chip.dataset.anim;
+      // glitch requires level2
+      if((anim==='logo-anim-glitch'||anim==='logo-anim-spin')&&xp<TIER_XP_REQ.level1){
+        showLockedTip('Level 1 • 1k XP');return;
+      }
+      if(anim==='logo-anim-wave'&&xp<TIER_XP_REQ.level2){
+        showLockedTip('Level 2 • 5k XP');return;
+      }
+      document.querySelectorAll('.anim-chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      _tempSelectedAnim=anim;
+    };
+  });
+});
+
+window.applySelectedLogo=function(){
+  if(!_tempSelectedLogo){showToast('⚠️ Pick a logo first');return;}
+  const logo=_tempSelectedLogo;
+  _selectedLogoId=logo.id;
+  _selectedLogoAnim=_tempSelectedAnim;
+  _selectedLogoTarget=logo.target;
+  localStorage.setItem('pycloud_active_logo',logo.id);
+  localStorage.setItem('pycloud_logo_anim',_selectedLogoAnim);
+  localStorage.setItem('pycloud_logo_target',logo.target);
+  applyLogoToUI(logo,_selectedLogoAnim);
+  closeModal('githubLogoModal');
+  addBossMsg(`🎨 Logo updated to "${logo.name}". Looking sharp, Boss!`);
+  showToast('✅ Logo applied!');
+};
+
+window.resetLogo=function(){
+  _selectedLogoId=null;_selectedLogoAnim='';
+  localStorage.removeItem('pycloud_active_logo');
+  localStorage.removeItem('pycloud_logo_anim');
+  const hLogo=document.getElementById('headerLogo');
+  hLogo.src='';hLogo.className='';hLogo.classList.remove('loaded');
+  const global=window._globalSettings?.assets?.logoUrl;
+  if(global){hLogo.src=global;hLogo.classList.add('loaded');}
+  closeModal('githubLogoModal');
+  showToast('🔄 Logo reset');
+};
+
+function applyLogoToUI(logo,anim){
+  const animEnabled=localStorage.getItem('pycloud_logo_anim_enabled')!=='off';
+  const activeAnim=animEnabled?anim:'';
+  const target=logo.target||'logo';
+  if(target==='logo'){
+    const hLogo=document.getElementById('headerLogo');
+    if(logo.isEmoji){
+      const btn=document.getElementById('headerLogoBtn');
+      btn.innerHTML=`<span style="font-size:24px;" class="${activeAnim}">${logo.emoji}</span>`;
+      btn.onclick=toggleCommandPalette;
+    }else{
+      hLogo.src=logo.url;
+      hLogo.className=activeAnim;
+      hLogo.classList.add('loaded');
+    }
+  }else if(target==='run'){
+    const icon=document.getElementById('runBtnIcon');const lbl=document.getElementById('runBtnLabel');
+    if(logo.isEmoji){lbl.textContent=logo.emoji+' RUN';icon.style.display='none';}
+    else{icon.src=logo.url;icon.style.display='inline-block';}
+  }else if(target==='save'){
+    const icon=document.getElementById('saveBtnIcon');const lbl=document.getElementById('saveBtnLabel');
+    if(logo.isEmoji){lbl.textContent=logo.emoji+' Save';icon.style.display='none';}
+    else{icon.src=logo.url;icon.style.display='inline-block';}
+  }else if(target==='load'){
+    const icon=document.getElementById('loadBtnIcon');const lbl=document.getElementById('loadBtnLabel');
+    if(logo.isEmoji){lbl.textContent=logo.emoji+' Load';icon.style.display='none';}
+    else{icon.src=logo.url;icon.style.display='inline-block';}
+  }else if(target==='ai'){
+    const avatar=document.getElementById('bossAvatar');
+    if(logo.isEmoji) avatar.innerHTML=logo.emoji;
+    else avatar.innerHTML=`<img src="${logo.url}" style="width:100%;height:100%;object-fit:cover;">`;
+  }
+}
+
+/* Restore saved logo on load */
+function restoreSavedLogo(){
+  const id=_selectedLogoId;
+  if(!id) return;
+  const logo=(window._logoCatalog||DEFAULT_LOGO_CATALOG).find(l=>l.id===id);
+  if(logo) applyLogoToUI(logo,_selectedLogoAnim);
+}
+setTimeout(restoreSavedLogo,800);
+
+/* mzip handler */
+window.triggerMzipUpload=function(){
+  document.getElementById('mzipFileInput').click();
+};
+window.handleLogoUpload=function(input){
+  const file=input.files[0];if(!file) return;
+  const name=file.name;
+  const ext=name.split('.').pop().toLowerCase();
+  if(ext==='mzip'){
+    // Parse mzip: zip containing manifest.json + frames + optional CSS
+    const JSZip=window.JSZip;
+    if(!JSZip){showToast('⚠️ JSZip not loaded for .mzip');return;}
+    JSZip.loadAsync(file).then(zip=>{
+      const manifestFile=zip.files['manifest.json'];
+      if(!manifestFile){showToast('❌ manifest.json missing from .mzip');return;}
+      manifestFile.async('string').then(async manifest=>{
+        const m=JSON.parse(manifest);
+        const frameFile=zip.files[m.frames?.[0]||'frame0.png'];
+        if(!frameFile){showToast('❌ Frame file missing in .mzip');return;}
+        const blob=await frameFile.async('blob');
+        const url=URL.createObjectURL(blob);
+        const newLogo={
+          id:'mzip-'+Date.now(),name:m.name||name,url,tier:'anim',
+          target:m.target||'logo',desc:m.desc||'Custom animation pack',
+          locked:false,customAnim:m.cssAnim||''
+        };
+        window._logoCatalog.push(newLogo);
+        _tempSelectedLogo=newLogo;
+        renderLogoGallery();
+        showToast('✅ .mzip loaded: '+newLogo.name);
+        addBossMsg(`🎬 Animation pack "${newLogo.name}" loaded! Apply it from the gallery.`);
+      });
+    }).catch(e=>showToast('❌ .mzip error: '+e.message));
+  }else{
+    // Regular image
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      const newLogo={
+        id:'upload-'+Date.now(),name:name.replace(/\.[^.]+$/,''),
+        url:e.target.result,tier:'free',target:'logo',
+        desc:'Uploaded custom logo',locked:false
+      };
+      window._logoCatalog.push(newLogo);
+      _tempSelectedLogo=newLogo;
+      renderLogoGallery();
+      showToast('✅ Logo uploaded!');
+      // Update preview
+      const prev=document.getElementById('logoPreviewImg');
+      prev.src=e.target.result;prev.style.display='block';
+      document.getElementById('logoPreviewName').textContent=newLogo.name;
+      document.getElementById('logoPreviewDesc').textContent='Custom uploaded logo';
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+/* Open logo picker - load gallery */
+const _origOpenModal=window.openModal;
+function openModal(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.classList.add('open');
+  if(id==='githubLogoModal'){
+    window._logoCatalog=window._logoCatalog||DEFAULT_LOGO_CATALOG;
+    _tempSelectedLogo=null;
+    _tempSelectedAnim=_selectedLogoAnim||'';
+    renderLogoGallery();
+    // Set active anim chip
+    document.querySelectorAll('.anim-chip').forEach(c=>{
+      c.classList.toggle('active',c.dataset.anim===_tempSelectedAnim);
+    });
+    // Boss AI informs user about access
+    setTimeout(()=>bossLogoInfo(),400);
+  }
+  if(id==='adminLogoModal') renderAdminLogoList();
+  if(id==='profileModal' && window._renderProfile) window._renderProfile();
+}
+window.openModal=openModal;
+
+function bossLogoInfo(){
+  const xp=getUserXP();
+  const rankName=getRankName();
+  const freeCt=(window._logoCatalog||[]).filter(l=>!l.locked&&TIER_XP_REQ[l.tier]<=xp).length;
+  const lockedCt=(window._logoCatalog||[]).filter(l=>l.locked||TIER_XP_REQ[l.tier]>xp).length;
+  addBossMsg(`🖼️ Logo Hub: You have ${xp.toLocaleString()} XP (${rankName}). ${freeCt} logos available, ${lockedCt} locked. Level up to unlock more!`);
+}
+
+function closeModal(id){
+  const el=document.getElementById(id);if(el) el.classList.remove('open');
+}
+window.closeModal=closeModal;
+
+/* ══════════════════════════════════════════════
+   SOLO LEVELING RANK UP SYSTEM
+══════════════════════════════════════════════ */
+let _lastRankIdx=parseInt(localStorage.getItem('pycloud_last_rank')||'0');
+
+window._checkRankUp=function(prevStats){
+  const prevXP=calcScore(prevStats);
+  const currXP=calcScore(window._statsData||{});
+  let prevRankIdx=0,currRankIdx=0;
+  for(let i=0;i<RANKS.length;i++){
+    if(prevXP>=RANKS[i].min) prevRankIdx=i;
+    if(currXP>=RANKS[i].min) currRankIdx=i;
+  }
+  if(currRankIdx>prevRankIdx||currRankIdx>_lastRankIdx){
+    _lastRankIdx=currRankIdx;
+    localStorage.setItem('pycloud_last_rank',currRankIdx);
+    setTimeout(()=>showRankUp(RANKS[currRankIdx]),600);
+  }
+};
+
+function showRankUp(rank){
+  document.getElementById('rankUpCrown').textContent=rank.icon;
+  document.getElementById('rankUpRankName').textContent=rank.name;
+  document.getElementById('rankUpRankName').style.color=rank.color;
+  document.getElementById('rankUpRankName').style.textShadow=`0 0 30px ${rank.color}`;
+  document.getElementById('rankUpSub').textContent=getRankSubtext(rank.name);
+  spawnRankParticles(rank.color);
+  const overlay=document.getElementById('rankUpOverlay');
+  overlay.style.display='flex';
+  setTimeout(()=>overlay.classList.add('show'),10);
+  // Screen flash
+  document.body.style.transition='none';
+  document.body.style.boxShadow=`inset 0 0 80px 40px ${rank.color}44`;
+  setTimeout(()=>{document.body.style.boxShadow='';},600);
+}
+
+function getRankSubtext(name){
+  const map={
+    'Beginner Coder':'Your journey begins, Hunter. The gate has opened.',
+    'Intermediate Coder':'You have grown stronger. The system acknowledges you.',
+    'Epic Coder':'A formidable warrior. The code bends to your will.',
+    'Legendary Coder':'Legends speak of coders like you. Witness the power.',
+    'Mythic Coder':'You stand among the shadows. The gate trembles before you.'
+  };
+  return map[name]||'A new rank has been achieved. The system acknowledges you.';
+}
+
+function spawnRankParticles(color){
+  const container=document.getElementById('rankUpParticles');
+  container.innerHTML='';
+  for(let i=0;i<40;i++){
+    const p=document.createElement('div');
+    p.className='rank-particle';
+    const x=Math.random()*200-100,y=Math.random()*200-100;
+    const size=Math.random()*6+2;
+    p.style.cssText=`
+      left:${Math.random()*100}%;top:${Math.random()*100}%;
+      width:${size}px;height:${size}px;
+      background:${Math.random()>.5?color:'#ffffff'};
+      --px:${x}vw;--py:${y}vh;
+      animation-delay:${Math.random()*.5}s;
+      animation-duration:${1.5+Math.random()}s;
+      border-radius:${Math.random()>.5?'0':'50%'};
+    `;
+    container.appendChild(p);
+  }
+}
+
+window.closeRankUp=function(){
+  const overlay=document.getElementById('rankUpOverlay');
+  overlay.classList.remove('show');
+  setTimeout(()=>overlay.style.display='none',300);
+};
+
+/* ── MONACO SETUP ── */
+require.config({paths:{vs:'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs'}});
+require(['vs/editor/editor.main'],function(){
+  monaco.editor.defineTheme('theme-red',{base:'vs-dark',inherit:true,rules:[],colors:{'editor.background':'#0f0608','editor.foreground':'#fde8ea'}});
+  monaco.editor.defineTheme('theme-green',{base:'vs-dark',inherit:true,rules:[],colors:{'editor.background':'#060f08','editor.foreground':'#e8fdee'}});
+  monaco.editor.defineTheme('theme-blue',{base:'vs-dark',inherit:true,rules:[],colors:{'editor.background':'#060a0f','editor.foreground':'#e8f4fd'}});
+  editor=monaco.editor.create(document.getElementById('editor'),{
+    value:"# Welcome Boss\nprint('Ready to cook?')",
+    language:'python',
+    theme:MONACO_THEMES[currentTheme]||'vs-dark',
+    fontSize:14,fontFamily:"'Space Mono',monospace",automaticLayout:true
+  });
+  editor.onDidChangeModelContent((e)=>{
+    trackKeystroke();
+    const lastChange=e.changes[0]?.text||'';
+    for(const [kw,msg] of Object.entries(KEYWORD_REACTIONS)){
+      if(lastChange.includes(kw)){addBossMsg(msg);break;}
+    }
+  });
+  editor.onKeyDown((e)=>{
+    const k=e.browserEvent.key;
+    if(k==='Backspace'||k==='Delete') window._statsDelta.backspaces++;
+    else if(k==='Enter'){window._statsDelta.lettersTyped++;window._statsDelta.linesTyped++;}
+    else if(k.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey) window._statsDelta.lettersTyped++;
+  });
+});
+
+/* ── CONSOLE INPUT ── */
+consoleInput.addEventListener('keydown',async(e)=>{
+  if(e.key==='Enter'){
+    const code=consoleInput.value.trim();if(!code)return;
+    if(!pyodideReady){addOutput('[ERROR] Python engine not ready.','error');return;}
+    addOutput('>>> '+code,'info');consoleInput.value='';
+    try{
+      pyodide.runPython('import sys, io; sys.stdout = io.StringIO(); sys.stderr = io.StringIO()');
+      const result=await pyodide.runPythonAsync(code);
+      const stdout=pyodide.runPython('sys.stdout.getvalue()');
+      const stderr=pyodide.runPython('sys.stderr.getvalue()');
+      if(stdout) addOutput(stdout.trimEnd());
+      if(stderr) addOutput(stderr.trimEnd(),'error');
+      if(result!==undefined&&result!==null) addOutput(String(result));
+      window._statsDelta.runsSuccessful++;
+    }catch(err){addOutput(String(err).split('\n').pop(),'error');}
+  }
+});
+
+function addOutput(text,type=''){
+  const span=document.createElement('span');
+  if(type) span.className=type;
+  span.textContent=text+'\n';
+  output.appendChild(span);output.scrollTop=output.scrollHeight;
+}
+
+function addBossMsg(text){
+  const msg=document.createElement('div');
+  msg.className='msg boss';msg.textContent=text;
+  bossChat.appendChild(msg);bossChat.scrollTop=bossChat.scrollHeight;
+  setTimeout(()=>{msg.classList.add('fade-out');setTimeout(()=>msg.remove(),500);},12000);
+}
+
+let typingTimeout;
+function trackKeystroke(){
+  typingIndicator.style.display='block';
+  clearTimeout(typingTimeout);
+  typingTimeout=setTimeout(()=>{
+    typingIndicator.style.display='none';
+    if(Math.random()>.98) addBossMsg(BOSS_MESSAGES[Math.floor(Math.random()*BOSS_MESSAGES.length)]);
+  },1500);
+}
+
+/* ── ACHIEVEMENTS ── */
+window._checkAchievements=function(){
+  const stats=window._statsData||{};
+  ACHIEVEMENTS_DATA.forEach(ach=>{
+    const key='ach_'+sessionStorage.getItem('pycloud_userId')+'_'+ach.id;
+    if(stats[ach.stat]>=ach.need&&!localStorage.getItem(key)){
+      localStorage.setItem(key,'true');
+      addBossMsg(`🏆 ACHIEVEMENT: ${ach.name}!`);
+      showToast(`🏆 ${ach.name} Unlocked!`);
+    }
+  });
+};
+
+/* ── RANKS / PROFILE ── */
+function calcScore(s){return Math.floor((s.lettersTyped||0)*.5+(s.runsSuccessful||0)*50+(s.linesTyped||0)*3+(s.functionsRun||0)*30);}
+
+window._renderProfile=function(){
+  const s=window._statsData||{};
+  const score=calcScore(s);
+  let rank=RANKS[0],next=null;
+  for(const r of RANKS){if(score>=r.min)rank=r;else{next=r;break;}}
+  const rankPct=next?Math.min(100,((score-rank.min)/(next.min-rank.min))*100):100;
+  const storedName=(window._userSettings?.name)||sessionStorage.getItem('pycloud_displayName')||sessionStorage.getItem('pycloud_userId')||'User';
+  document.getElementById('profileNameDisplay').textContent=storedName;
+  document.getElementById('profileRankBadge').innerHTML=`<span class="rank-icon-big">${rank.icon}</span><span class="rank-name-big" style="color:${rank.color}">${rank.name}</span>`;
+  document.getElementById('profileScore').textContent=score.toLocaleString()+' XP';
+  document.getElementById('profileRankBar').style.cssText=`width:${rankPct}%;background:${rank.color};`;
+  document.getElementById('profileRankLabel').textContent=next?`${Math.round(rankPct)}% to ${next.name}`:'MAX RANK';
+  // Logo access info
+  const freeCt=(window._logoCatalog||[]).filter(l=>!l.locked&&score>=TIER_XP_REQ[l.tier]).length;
+  const el=document.getElementById('profileLogoAccess');
+  if(el) el.textContent=`🖼️ ${freeCt} logos unlocked • Click "Logo" button to customize`;
+  const statsRows=[{v:s.lettersTyped,l:'Keys'},{v:s.backspaces,l:'Back'},{v:s.runsSuccessful,l:'Runs'},{v:s.linesTyped,l:'Lines'},{v:s.functionsRun,l:'Funcs'},{v:score,l:'XP'}];
+  document.getElementById('profileStats').innerHTML=statsRows.map(r=>`<div class="stat-card"><div class="stat-value">${(r.v||0).toLocaleString()}</div><div class="stat-label">${r.l}</div></div>`).join('');
+  document.getElementById('profileAchievements').innerHTML=ACHIEVEMENTS_DATA.map(a=>{
+    const val=s[a.stat]||0;const pct=Math.min(100,(val/a.need)*100);const unlocked=val>=a.need;
+    return `<div class="ach-item ${unlocked?'ach-unlocked':'ach-locked'}"><div class="ach-icon">${a.icon}</div><div class="ach-meta"><div class="ach-name">${a.name}</div><div class="ach-desc">${a.desc}</div><div class="ach-bar"><div class="ach-fill" style="width:${pct}%"></div></div></div></div>`;
+  }).join('');
+};
+
+/* ── PYODIDE LOADER ── */
+async function loadPyodideWithProgress(){
+  if(isDownloading) return;
+  isDownloading=true;
+  const overlay=document.getElementById('loaderOverlay');
+  const bar=document.getElementById('progressBar');
+  const eta=document.getElementById('loaderEta');
+  overlay.style.display='flex';
+  const originalFetch=window.fetch;
+  window.fetch=async function(input,init){
+    const url=(typeof input==='string')?input:(input?.url??'');
+    const response=await originalFetch(input,init);
+    if(url.includes('pyodide.asm.wasm')){
+      const total=parseInt(response.headers.get('content-length')||'28500000');
+      let received=0;const t0=Date.now();
+      const reader=response.body.getReader();
+      return new Response(new ReadableStream({
+        start(controller){
+          function pump(){
+            return reader.read().then(({done,value})=>{
+              if(done){controller.close();return;}
+              received+=value.length;
+              const pct=Math.min(95,(received/total)*100);
+              bar.style.width=pct+'%';
+              const elapsed=(Date.now()-t0)/1000;
+              const speed=received/Math.max(elapsed,.1);
+              const etaSec=Math.ceil((total-received)/speed);
+              eta.textContent=`ESTIMATED TIME: ${etaSec}s`;
+              controller.enqueue(value);return pump();
+            });
+          }return pump();
+        }
+      }),{headers:response.headers});
+    }return response;
+  };
+  const script=document.createElement('script');
+  script.src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js";
+  document.head.appendChild(script);
+  script.onload=async()=>{
+    pyodide=await loadPyodide({indexURL:"https://cdn.jsdelivr.net/pyodide/v0.25.1/full/"});
+    await pyodide.runPythonAsync(`import builtins, js; builtins.input = lambda p='': js.window.prompt(str(p) if p else '')`);
+    pyodideReady=true;window.fetch=originalFetch;bar.style.width='100%';
+    try{const pyVer=pyodide.runPython('import sys; sys.version.split()[0]');document.getElementById('pyVersion').textContent='🐍 Python '+pyVer;}catch(_){}
+    setTimeout(()=>{overlay.style.display='none';},500);runCode();
+  };
+}
+
+/* ── RUN / SAVE / LOAD ── */
+function handleRunClick(){
+  if(!pyodideReady){
+    if(confirm("Python runtime not installed. Download required (~30 MB). Continue?")) loadPyodideWithProgress();
+  }else runCode();
+}
+window.handleRunClick=handleRunClick;
+
+async function runCode(){
+  const code=editor.getValue();output.innerHTML='';addOutput('Running...','info');
+  document.getElementById('runBtn').disabled=true;
+  try{
+    await pyodide.loadPackagesFromImports(code);
+    pyodide.runPython('import sys, io; sys.stdout = io.StringIO(); sys.stderr = io.StringIO()');
+    await pyodide.runPythonAsync(code);
+    const res=pyodide.runPython('sys.stdout.getvalue()');
+    const err=pyodide.runPython('sys.stderr.getvalue()');
+    output.innerHTML='';
+    if(res) addOutput(res);
+    if(err){addOutput(err,'error');addBossMsg("Syntax or logic error detected, Boss.");}
+    if(!res&&!err) addOutput('(no output)','info');
+    window._statsDelta.runsSuccessful++;
+    window._statsDelta.functionsRun+=(code.match(/^\s*def\s+\w+/gm)||[]).length;
+    if(!err) addBossMsg("Execution successful.");
+  }catch(e){
+    output.innerHTML='';addOutput(String(e).split('\n').pop(),'error');
+    addBossMsg("I found a syntax error. Check your code!");
+  }finally{document.getElementById('runBtn').disabled=false;}
+}
+
+async function saveProject(){
+  const name=document.getElementById('projectName').value.trim()||'untitled';
+  const code=editor.getValue();
+  const uid=sessionStorage.getItem('pycloud_userId');
+  try{
+    await window._firestoreFns.setDoc(window._firestoreFns.doc(window._db,'users',uid,'projects',name),
+      {name,code,updatedAt:new Date().toISOString()});
+    showToast(`🛡️ Saved: ${name}`);
+  }catch(e){showToast('❌ Save failed');}
+}
+window.saveProject=saveProject;
+
+async function openLoadModal(){
+  const list=document.getElementById('projectList');
+  list.innerHTML='<div style="font-family:\'Space Mono\',monospace;font-size:11px;color:var(--muted);padding:12px;">Loading...</div>';
+  openModal('loadModal');
+  const uid=sessionStorage.getItem('pycloud_userId');
+  try{
+    const snap=await window._firestoreFns.getDocs(window._firestoreFns.collection(window._db,'users',uid,'projects'));
+    list.innerHTML='';
+    if(snap.empty){list.innerHTML='<div style="font-family:\'Space Mono\',monospace;font-size:11px;color:var(--muted);padding:12px;">No saved projects yet.</div>';return;}
+    snap.forEach(docSnap=>{
+      const d=docSnap.data();const div=document.createElement('div');
+      div.style.cssText="padding:10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:'Space Mono',monospace;font-size:12px;";
+      div.innerHTML=`<span style="color:var(--text)">${d.name}</span><button style="background:var(--red);color:#fff;padding:2px 8px;font-size:10px;border-radius:4px;border:none;cursor:pointer;">del</button>`;
+      div.onclick=()=>{editor.setValue(d.code);document.getElementById('projectName').value=d.name;closeModal('loadModal');};
+      div.querySelector('button').onclick=async(e)=>{
+        e.stopPropagation();if(!confirm(`Delete "${d.name}"?`))return;
+        await window._firestoreFns.deleteDoc(window._firestoreFns.doc(window._db,'users',uid,'projects',d.name));
+        div.remove();showToast(`🗑️ Deleted: ${d.name}`);
+      };
+      list.appendChild(div);
+    });
+  }catch(e){list.innerHTML='<div style="color:var(--red);padding:12px;font-size:11px;font-family:\'Space Mono\',monospace;">Failed to load projects.</div>';}
+}
+window.openLoadModal=openLoadModal;
+
+/* ── COMMAND PALETTE ── */
+const COMMANDS=[
+  {label:'▶ Run Code',shortcut:'Ctrl+Enter',action:()=>handleRunClick()},
+  {label:'💾 Save Project',shortcut:'Ctrl+S',action:()=>saveProject()},
+  {label:'📂 Load Project',shortcut:'',action:()=>openLoadModal()},
+  {label:'🖼️ Change Logo',shortcut:'',action:()=>openModal('githubLogoModal')},
+  {label:'🎨 Next Theme',shortcut:'Ctrl+T',action:()=>document.getElementById('themeToggle').click()},
+  {label:'⚙️ My Settings',shortcut:'',action:()=>openUserSettings()},
+  {label:'👤 Profile',shortcut:'',action:()=>openModal('profileModal')},
+  {label:'✕ Clear Console',shortcut:'',action:()=>{output.innerHTML='';showToast('Console cleared');}},
+  {label:'↩ Logout',shortcut:'',action:()=>logout()}
+];
+
+function toggleCommandPalette(){
+  const p=document.getElementById('commandPalette');
+  const visible=p.style.display==='flex';
+  p.style.display=visible?'none':'flex';
+  if(!visible) document.getElementById('commandInput').focus();
+  if(!visible) renderCommands('');
+}
+window.toggleCommandPalette=toggleCommandPalette;
+
+function renderCommands(filter){
+  const list=document.getElementById('commandList');
+  const filtered=COMMANDS.filter(c=>c.label.toLowerCase().includes(filter.toLowerCase()));
+  list.innerHTML=filtered.map((c,i)=>`<div class="command-item${i===0?' selected':''}" onclick="(${c.action.toString()})();document.getElementById('commandPalette').style.display='none';">${c.label}<span class="command-shortcut">${c.shortcut}</span></div>`).join('');
+}
+
+document.getElementById('commandInput').addEventListener('input',e=>renderCommands(e.target.value));
+document.getElementById('commandInput').addEventListener('keydown',e=>{
+  if(e.key==='Escape') document.getElementById('commandPalette').style.display='none';
+  if(e.key==='Enter'){
+    const sel=document.querySelector('#commandList .selected');
+    if(sel) sel.click();
+  }
+});
+
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();saveProject();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();handleRunClick();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='t'){e.preventDefault();document.getElementById('themeToggle').click();}
+  if(e.key==='Escape') document.getElementById('commandPalette').style.display='none';
+});
+
+/* ── TOAST ── */
+function showToast(msg,dur=2800){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+window.showToast=showToast;
+
+/* ── MISC ── */
+function logout(){
+  window._flushStats&&window._flushStats();
+  sessionStorage.clear();window.location.href='index.html';
+}
+window.logout=logout;
+
+document.getElementById('clearBtn').onclick=()=>{output.innerHTML='';showToast('Console cleared');};
+
+window.openUserSettings=function(){
+  const d=window._userSettings||{};
+  document.getElementById('myAiName').value=d.aiName||'';
+  document.getElementById('myConsoleName').value=d.consoleName||'';
+  document.getElementById('gateAnimToggle').checked=localStorage.getItem('pycloud_gate_anim')!=='off';
+  document.getElementById('logoAnimToggle').checked=localStorage.getItem('pycloud_logo_anim_enabled')!=='off';
+  openModal('userSettingsModal');
+};
+
+// Drag/drop for mzip
+const dropZone=document.getElementById('mzipDropZone');
+if(dropZone){
+  dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag-over');});
+  dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop',e=>{
+    e.preventDefault();dropZone.classList.remove('drag-over');
+    const file=e.dataTransfer.files[0];if(!file) return;
+    const dt=new DataTransfer();dt.items.add(file);
+    document.getElementById('mzipFileInput').files=dt.files;
+    handleLogoUpload(document.getElementById('mzipFileInput'));
+  });
+}
+
+// Load JSZip for mzip support
+(function(){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';document.head.appendChild(s);})();
+
+// Initial boss greeting
+setTimeout(()=>{
+  addBossMsg("Welcome back, Boss! Type code, earn XP, unlock logos. Hit the 🖼️ Logo button to customize!");
+},1200);
+</script>
+</body>
+</html>
